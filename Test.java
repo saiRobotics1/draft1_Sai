@@ -58,7 +58,13 @@ public class Test extends LinearOpMode
             telemetry.addData("Present", "Yes");
             telemetry.update();
             driveStraight(36);
-            //reset();
+            driveStrafe(36);
+            driveStraight(-36);
+            driveStrafe(-36);
+
+
+
+            break;
         }
 
     }
@@ -77,7 +83,6 @@ public class Test extends LinearOpMode
         timer.reset();
         telemetry.addData("in DriveStraight", "yes");
         telemetry.update();
-        boolean firstTime = true;
         while (opModeIsActive() && !isStraightTargetReached()) {
             leftPosition = leftDeadWheel.getCurrentPosition(); //position in ticks
             rightPosition = rightDeadWheel.getCurrentPosition(); //same
@@ -89,22 +94,59 @@ public class Test extends LinearOpMode
 
             setStraightPower(leftOutput, rightOutput);
 
-            // To give it some time for the motors to start
-            if (firstTime)
-            {
-                sleep(20);//in milliseconds
-                firstTime = false;
-            }
             // Telemetry for debugging
             telemetry.addData("Left Position", leftPosition);
             telemetry.addData("Right Position", rightPosition);
             telemetry.addData("Left Output", leftOutput);
             telemetry.addData("Right Output", rightOutput);
             telemetry.addData("Runtime", runtime.milliseconds());
+            telemetry.addData("Target", leftPIDController.getTarget());
             telemetry.update();
         }
-
     }
+
+    private void driveStrafe(double target) //strafes to the right
+    {
+        // Reset encoders before starting
+        centerDeadWheel.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+        // Reset and set target for PID controller
+        centerPIDController.setTarget(target);
+        telemetry.addData("Target", centerPIDController.getTarget());
+        telemetry.update();
+
+        runtime.reset();//useless right now, but can use later for telemetry
+        timer.reset();
+
+        while (opModeIsActive() && !isStrafeTargetReached())
+        {
+            centerPosition = centerDeadWheel.getCurrentPosition(); //position in ticks
+
+            deltaTime = Math.max(timer.milliseconds(), 1e-3); // Avoids setting time to zero, Minimum deltaTime of 1 microsecond
+            timer.reset();
+            centerOutput = centerPIDController.calculateOutput(centerPosition, deltaTime);
+
+            setStrafePower(centerOutput);
+
+            // Telemetry for debugging
+            telemetry.addData("Center Position", centerPosition); //is negative
+            telemetry.addData("Center Output", centerOutput);
+            telemetry.addData("Target", centerPIDController.getTarget());
+            telemetry.addData("Runtime", runtime.milliseconds());
+            telemetry.update();
+        }
+    }
+
+    private void setStrafePower(double centerMotorPower) // automated to go right
+    {
+        backLeft.setPower(-centerMotorPower);
+        backRight.setPower(centerMotorPower);
+        frontRight.setPower(-centerMotorPower);
+        frontLeft.setPower(centerMotorPower);
+        telemetry.addData("PowerSet","yup");
+        telemetry.update();
+    }
+
 
     private void setStraightPower(double leftMotorPower, double rightMotorPower) //goes the calculated direction
     {
@@ -112,12 +154,13 @@ public class Test extends LinearOpMode
         backRight.setPower(rightMotorPower);
         frontRight.setPower(rightMotorPower);
         frontLeft.setPower(leftMotorPower);
+        telemetry.addData("PowerSet","yup");
+        telemetry.update();
     }
 
     // Check if the target distance is reached
     private boolean isStraightTargetReached()
     {
-        telemetry.addData("is?","in");
         telemetry.update();
         double leftError = Math.abs(leftPIDController.getError());
         double rightError = Math.abs(rightPIDController.getError());
@@ -126,6 +169,15 @@ public class Test extends LinearOpMode
         telemetry.update();
         return leftError < 200 && rightError < 200; // Tolerance of 200 encoder counts
     }
+
+    private boolean isStrafeTargetReached()
+    {
+        double centerError = Math.abs(centerPIDController.getError());
+        telemetry.addData("centerError",centerError);
+        return centerError < 200; // Tolerance of 200 encoder counts
+        //Later make tolerance a variable
+    }
+
 
     private void initializeHardware()
     {
@@ -146,7 +198,7 @@ public class Test extends LinearOpMode
 
         rightDeadWheel.setDirection(DcMotorSimple.Direction.FORWARD); //Make sure the deadwheels are in the right direction
         leftDeadWheel.setDirection(DcMotorSimple.Direction.REVERSE);
-        centerDeadWheel.setDirection(DcMotorSimple.Direction.FORWARD);
+        centerDeadWheel.setDirection(DcMotorSimple.Direction.REVERSE);
 
         // Reset encoders
         rightDeadWheel.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
@@ -158,5 +210,13 @@ public class Test extends LinearOpMode
         backLeft.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         backRight.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
+        rightDeadWheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        leftDeadWheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        centerDeadWheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+
+        frontLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE); //If we ran using encoder, the robot's speed would be automatically adjusted
+        frontRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE); //If we don't specify that we are running WITHOUT encoders, it will set the status to what it previously was, leading to unpredictability
+        backLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        backRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
     }
 }

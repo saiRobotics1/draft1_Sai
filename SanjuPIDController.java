@@ -3,6 +3,8 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
+// Not Working
+
 public class SanjuPIDController {
     private double kP, kI, kD, kF;
     private double target; //in ticks
@@ -12,11 +14,9 @@ public class SanjuPIDController {
     private static final double MAX_INTEGRAL = 1000; // Adjust based on your system's needs
 
     // declare Mathy Variables
-    private ElapsedTime timer;
     private int ticksPerRotation = 8192;
-    double wheelCircumference = (Math.PI * 60);
-    double inchesPerTick = (wheelCircumference / ticksPerRotation) / 2.54;
-    double ticksPerInch = (ticksPerRotation / wheelCircumference) * 25.4;
+    double wheelCircumference = (Math.PI * 60)/25.4;
+    double ticksPerInch = (ticksPerRotation / wheelCircumference);
 
     public SanjuPIDController(double kP, double kI, double kD, double kF)
     {
@@ -26,33 +26,32 @@ public class SanjuPIDController {
         this.kF = kF;
         this.integralSum = 0;
         this.lastError = 0;
-        this.timer = new ElapsedTime();
     }
 
     public SanjuPIDController(String type)
     {
         if (type.equals("straight"))
         {
-            this.kP = 0;
+            this.kP = 0.000022;
             this.kI = 0;
-            this.kD = 0;
-            this.kF = 0;
+            this.kD = 0.;
+            this.kF = 0.1;
         }
         if (type.equals("strafe"))
         {
-            this.kP = 0;
+            this.kP = 0.00007;
             this.kI = 0;
             this.kD = 0;
-            this.kF = 0;
+            this.kF = 0.3;
         }
         this.integralSum = 0;
         this.lastError = 0;
-        this.timer = new ElapsedTime();
     }
 
     public void setTarget(double target) //set always in inches
     {
         this.target = target * ticksPerInch;
+        error = target * ticksPerInch;
     }
 
     public double calculateOutput(double currentPosition, double deltaTime)
@@ -60,25 +59,29 @@ public class SanjuPIDController {
         error = target - currentPosition;
 
         //useful if one motor reaches destination but other doesn't
-        if (Math.abs(error) < 200) {  //200 is the tolerance
+        /*if (Math.abs(error) < 10) {  //10 is the tolerance
             return 0; // Stop power once target is reached
-        }
+        }*/
 
         double aMaxPoint = target/4;
 
         double proportional = kP * error;
-        
+
         integralSum += (error * deltaTime);
         // Anti-windup especially when distance is large
         integralSum = Range.clip(integralSum, -MAX_INTEGRAL, MAX_INTEGRAL);
         double integral = kI * integralSum;
-        
+
         double derivative = kD * (error - lastError)/deltaTime;
         lastError = error;
 
-        double baseOutput = proportional + integral + derivative;;
+        double baseOutput = proportional + integral + derivative;
         double output;
 
+        if (target<0)
+        {
+            kF= -kF;
+        }
         if (currentPosition < aMaxPoint)
         {
             output = kF + (currentPosition/aMaxPoint) * baseOutput;
@@ -88,8 +91,8 @@ public class SanjuPIDController {
             output = kF + baseOutput;
         }
 
-        output = Range.clip(output, -0.5, 0.5);
-        
+        output = Range.clip(output, -0.8, 0.8);
+
         return output;
     }
 
@@ -97,12 +100,15 @@ public class SanjuPIDController {
     {
         return error;
     }
+    public double getTarget()
+    {
+        return target;
+    }
 
     public void reset()
     {
         integralSum = 0;
         lastError = 0;
-        timer.reset();
     }
 
 }
