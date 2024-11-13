@@ -51,7 +51,7 @@ public class SanjuPIDController {
     public void setTarget(double target) //set always in inches
     {
         this.target = target * ticksPerInch;
-        error = target;
+        error = target * ticksPerInch;
     }
 
     public double calculateOutput(double currentPosition, double deltaTime)
